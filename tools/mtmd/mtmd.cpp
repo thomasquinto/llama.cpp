@@ -1150,7 +1150,13 @@ struct mtmd_tokenizer {
 
         input_text.assign(text->text, text->text_len);
 
-        std::vector<const mtmd_bitmap *> bitmaps(bmps, bmps + n_bitmaps);
+        std::vector<const mtmd_bitmap *> bitmaps;
+        if (n_bitmaps > 0) {
+            if (!bmps) {
+                throw std::runtime_error("bitmap array is null");
+            }
+            bitmaps.assign(bmps, bmps + n_bitmaps);
+        }
         auto parts_str = split_text(input_text, ctx->media_marker);
         size_t i_bm = 0;
         for (const auto & part : parts_str) {

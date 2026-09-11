@@ -1,5 +1,7 @@
 #include "llama-graph.h"
 
+#include <stdexcept>
+
 #include "llama-impl.h"
 #include "llama-model.h"
 #include "llama-batch.h"
@@ -1512,6 +1514,18 @@ ggml_tensor * llm_graph_context::build_lora_mm(
           ggml_tensor * w,
           ggml_tensor * cur,
           ggml_tensor * w_s) const {
+    // edge-ai: a weight the graph needs but the file does not carry arrives here as null,
+    // because several architectures create their tensors with permissive flags and then
+    // use them unconditionally. ggml_mul_mat would dereference it and take the whole
+    // process down with SIGSEGV during model load, with no indication of the cause.
+    // llama_init_from_model wraps construction in try/catch, so throwing turns that into
+    // a logged failure and a null context the caller can report.
+    if (w == nullptr) {
+        throw std::runtime_error(
+            "missing weight tensor while building the graph: this build does not support "
+            "this model's tensor layout");
+    }
+
     ggml_tensor * res = ggml_mul_mat(ctx0, w, cur);
 
     if (w_s) {
@@ -1544,6 +1558,13 @@ ggml_tensor * llm_graph_context::build_lora_mm_id(
           ggml_tensor * cur, // ggml_tensor * b
           ggml_tensor * ids,
           ggml_tensor * w_s) const {
+    // edge-ai: see build_lora_mm -- same null-weight guard for the MoE path.
+    if (w == nullptr) {
+        throw std::runtime_error(
+            "missing expert weight tensor while building the graph: this build does not "
+            "support this model's tensor layout");
+    }
+
     ggml_tensor * res = ggml_mul_mat_id(ctx0, w, cur, ids);
 
     if (w_s) {
